@@ -110,6 +110,7 @@ enum Sound {
     }
 }
 
+@MainActor
 enum Clipboard {
     static func copy(image: CGImage, scale: CGFloat) {
         let pb = NSPasteboard.general
@@ -141,6 +142,7 @@ enum Clipboard {
     }
 }
 
+@MainActor
 enum Permissions {
     static var hasScreenRecording: Bool { CGPreflightScreenCaptureAccess() }
 
@@ -168,6 +170,7 @@ enum Permissions {
     }
 }
 
+@MainActor
 enum Alerts {
     static func show(_ error: Error, title: String = "Something went wrong") {
         NSApp.activate(ignoringOtherApps: true)

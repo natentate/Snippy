@@ -110,7 +110,7 @@ final class ScrollStitcher {
 
 /// Drives a scrolling capture: periodically grabs the selected region while the user scrolls.
 @MainActor
-final class ScrollingCaptureSession {
+final class ScrollingCaptureSession: NSObject {
     private static var active: ScrollingCaptureSession?
 
     private let screen: NSScreen
@@ -139,6 +139,7 @@ final class ScrollingCaptureSession {
         self.screen = screen
         self.display = display
         localRect = rect
+        super.init()
     }
 
     private func begin() {
