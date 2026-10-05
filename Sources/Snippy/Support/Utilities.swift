@@ -98,15 +98,19 @@ enum FileNamer {
     }
 }
 
+@MainActor
 enum Sound {
-    static func playCapture() {
-        guard Preferences.playSound else { return }
+    /// Held strongly: a local NSSound can be deallocated mid-playback, cutting the shutter off.
+    private static let shutter: NSSound? = {
         let path = "/System/Library/Components/CoreAudio.component/Contents/SharedSupport/SystemSounds/system/Screen Capture.aif"
-        if let sound = NSSound(contentsOfFile: path, byReference: true) {
-            sound.play()
-        } else {
-            NSSound(named: "Tink")?.play()
-        }
+        return NSSound(contentsOfFile: path, byReference: false) ?? NSSound(named: "Tink")
+    }()
+
+    static func playCapture() {
+        guard Preferences.playSound, let shutter else { return }
+        if shutter.isPlaying { shutter.stop() }
+        shutter.currentTime = 0
+        shutter.play()
     }
 }
 

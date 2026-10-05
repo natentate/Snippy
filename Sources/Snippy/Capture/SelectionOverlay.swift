@@ -112,7 +112,8 @@ final class SelectionView: NSView {
     private let screen: NSScreen
     private let frozen: Capture?
     private let frozenImage: NSImage?
-    private unowned let controller: SelectionController
+    /// Weak: overlay windows outlive the controller briefly after a selection finishes.
+    private weak var controller: SelectionController?
 
     private var dragStart: CGPoint?
     private var dragCurrent: CGPoint?
@@ -134,7 +135,9 @@ final class SelectionView: NSView {
 
     override var acceptsFirstResponder: Bool { true }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-    override func cursorUpdate(with event: NSEvent) { NSCursor.crosshair.set() }
+    override func cursorUpdate(with event: NSEvent) {
+        if controller != nil { NSCursor.crosshair.set() }
+    }
 
     private var selectionRect: CGRect? {
         guard let a = dragStart, let b = dragCurrent else { return nil }
@@ -144,6 +147,7 @@ final class SelectionView: NSView {
     // MARK: Events
 
     override func mouseMoved(with event: NSEvent) {
+        guard let controller else { return }
         NSCursor.crosshair.set()
         mouse = convert(event.locationInWindow, from: nil)
         if controller.windowMode {
@@ -155,6 +159,7 @@ final class SelectionView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
+        guard let controller else { return }
         window?.makeKey()
         let p = convert(event.locationInWindow, from: nil)
         mouse = p
@@ -165,6 +170,7 @@ final class SelectionView: NSView {
     }
 
     override func mouseDragged(with event: NSEvent) {
+        guard let controller else { return }
         let p = convert(event.locationInWindow, from: nil)
         mouse = p
         guard !controller.windowMode else { return }
@@ -180,6 +186,7 @@ final class SelectionView: NSView {
     }
 
     override func mouseUp(with event: NSEvent) {
+        guard let controller else { return }
         if controller.windowMode {
             if let window = controller.window(at: NSEvent.mouseLocation) {
                 controller.finish(.window(window))
@@ -199,6 +206,7 @@ final class SelectionView: NSView {
     }
 
     override func keyDown(with event: NSEvent) {
+        guard let controller else { return }
         switch Int(event.keyCode) {
         case 53: // Esc
             controller.finish(nil)
@@ -214,12 +222,12 @@ final class SelectionView: NSView {
         }
     }
 
-    override func rightMouseDown(with event: NSEvent) { controller.finish(nil) }
+    override func rightMouseDown(with event: NSEvent) { controller?.finish(nil) }
 
     // MARK: Drawing
 
     override func draw(_ dirtyRect: NSRect) {
-        guard let ctx = NSGraphicsContext.current?.cgContext else { return }
+        guard let controller, let ctx = NSGraphicsContext.current?.cgContext else { return }
         frozenImage?.draw(in: bounds)
 
         let dim = NSColor.black.withAlphaComponent(0.35)
@@ -253,6 +261,7 @@ final class SelectionView: NSView {
     }
 
     private func drawWindowMode(ctx: CGContext, dim: NSColor) {
+        guard let controller else { return }
         let global = hoveredWindow.map { Geometry.appKitRect(fromCG: $0.frame) }
         let local = global.map { CGRect(x: $0.minX - screen.frame.minX, y: $0.minY - screen.frame.minY,
                                         width: $0.width, height: $0.height) }
@@ -323,6 +332,7 @@ final class SelectionView: NSView {
     }
 
     private func drawHint(text: String? = nil) {
+        guard let controller else { return }
         guard let mouse, bounds.contains(mouse) || controller.windowMode else { return }
         let message = text ?? controller.options.hint
         let attrs: [NSAttributedString.Key: Any] = [

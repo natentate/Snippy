@@ -11,6 +11,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         super.init()
         menu.delegate = self
         menu.autoenablesItems = false
+        statusItem.autosaveName = "SnippyStatusItem"
+        statusItem.behavior = []
+        statusItem.isVisible = true
         statusItem.menu = menu
         setIdleAppearance()
         coordinator.onRecordingChanged = { [weak self] recording in
@@ -21,6 +24,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     // MARK: Appearance
 
     private func setIdleAppearance() {
+        statusItem.isVisible = true
         guard let button = statusItem.button else { return }
         let image = NSImage(systemSymbolName: "viewfinder", accessibilityDescription: "Snippy")
         image?.isTemplate = true
