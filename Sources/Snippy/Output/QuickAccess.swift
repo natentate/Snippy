@@ -81,7 +81,8 @@ final class QuickAccessManager {
 
         let view = QuickAccessView(item: item,
                                    onHover: { [weak self] hovering in self?.setHovering(item, hovering) },
-                                   perform: { [weak self] action in self?.perform(action, on: item) })
+                                   perform: { [weak self] action in self?.perform(action, on: item) },
+                                   drag: { [weak self] phase in self?.handleDrag(phase) })
         panel.contentView = FirstMouseHostingView(rootView: view)
         entries.insert(Entry(item: item, panel: panel, timer: nil), at: 0)
         layout(animated: false)
@@ -148,7 +149,7 @@ final class QuickAccessManager {
 
     private func scheduleClose(_ item: QuickAccessItem) {
         let delay = Preferences.quickAccessAutoClose
-        guard delay > 0, let index = entries.firstIndex(where: { $0.item === item }) else { return }
+        guard delay > 0, !isDragging, let index = entries.firstIndex(where: { $0.item === item }) else { return }
         entries[index].timer?.invalidate()
         entries[index].timer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
             Task { @MainActor in self?.close(item) }
@@ -168,12 +169,71 @@ final class QuickAccessManager {
         layout(animated: true)
     }
 
-    private func layout(animated: Bool) {
-        let screen = NSScreen.main ?? NSScreen.screens[0]
+    // MARK: Positioning
+
+    private var isDragging = false
+    private var grabOffset: CGFloat = 0
+
+    /// The screen the stack lives on (remembered across launches, falls back to the main screen).
+    private var screen: NSScreen {
+        Preferences.quickAccessDisplay.flatMap { NSScreen.screen(withDisplayID: $0) } ?? NSScreen.main ?? NSScreen.screens[0]
+    }
+
+    private var stackHeight: CGFloat {
+        CGFloat(max(entries.count, 1)) * (size.height - 8) + 8
+    }
+
+    /// Bottom y of the stack, clamped so the whole stack stays on screen.
+    private func baseY(on screen: NSScreen) -> CGFloat {
         let visible = screen.visibleFrame
+        let travel = max(0, visible.height - stackHeight)
+        return visible.minY + travel * CGFloat(Preferences.quickAccessOffset)
+    }
+
+    enum DragPhase { case began(CGPoint), moved(CGPoint), ended }
+
+    /// Dragging the grip slides the stack along the left or right screen edge.
+    func handleDrag(_ phase: DragPhase) {
+        switch phase {
+        case let .began(point):
+            isDragging = true
+            for i in entries.indices { entries[i].timer?.invalidate(); entries[i].timer = nil }
+            grabOffset = point.y - baseY(on: screen)
+        case let .moved(point):
+            guard isDragging else { return }
+            let target = NSScreen.screens.first { $0.frame.contains(point) } ?? screen
+            Preferences.quickAccessDisplay = target.displayID
+            Preferences.quickAccessEdge = point.x < target.frame.midX ? .left : .right
+            let visible = target.visibleFrame
+            let travel = max(1, visible.height - stackHeight)
+            Preferences.quickAccessOffset = Double((point.y - grabOffset - visible.minY) / travel)
+            layout(animated: false, followingX: point.x)
+        case .ended:
+            guard isDragging else { return }
+            isDragging = false
+            layout(animated: true)
+            for entry in entries { scheduleClose(entry.item) }
+        }
+    }
+
+    func resetPosition() {
+        Preferences.resetQuickAccessPosition()
+        layout(animated: true)
+    }
+
+    /// `followingX`: while dragging, the stack follows the pointer horizontally; on release it snaps to the edge.
+    private func layout(animated: Bool, followingX: CGFloat? = nil) {
+        let screen = screen
+        let visible = screen.visibleFrame
+        let base = baseY(on: screen)
+        let x: CGFloat
+        if let followingX {
+            x = max(visible.minX, min(visible.maxX - size.width, followingX - size.width / 2))
+        } else {
+            x = Preferences.quickAccessEdge == .left ? visible.minX + 8 : visible.maxX - size.width - 8
+        }
         for (i, entry) in entries.enumerated() {
-            let frame = CGRect(x: visible.minX + 8, y: visible.minY + 8 + CGFloat(i) * (size.height - 8),
-                               width: size.width, height: size.height)
+            let frame = CGRect(x: x, y: base + CGFloat(i) * (size.height - 8), width: size.width, height: size.height)
             if animated {
                 NSAnimationContext.runAnimationGroup { ctx in
                     ctx.duration = 0.2
@@ -186,6 +246,43 @@ final class QuickAccessManager {
     }
 }
 
+/// A grip that reports global mouse positions so the overlay can be repositioned.
+struct DragGrip: NSViewRepresentable {
+    var onDrag: (QuickAccessManager.DragPhase) -> Void
+
+    func makeNSView(context: Context) -> GripView {
+        let view = GripView()
+        view.onDrag = onDrag
+        return view
+    }
+
+    func updateNSView(_ view: GripView, context: Context) {
+        view.onDrag = onDrag
+    }
+
+    final class GripView: NSView {
+        var onDrag: ((QuickAccessManager.DragPhase) -> Void)?
+
+        override var mouseDownCanMoveWindow: Bool { false }
+        override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+        override func resetCursorRects() { addCursorRect(bounds, cursor: .openHand) }
+
+        override func mouseDown(with event: NSEvent) {
+            NSCursor.closedHand.push()
+            onDrag?(.began(NSEvent.mouseLocation))
+        }
+
+        override func mouseDragged(with event: NSEvent) {
+            onDrag?(.moved(NSEvent.mouseLocation))
+        }
+
+        override func mouseUp(with event: NSEvent) {
+            NSCursor.pop()
+            onDrag?(.ended)
+        }
+    }
+}
+
 final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
@@ -194,6 +291,7 @@ struct QuickAccessView: View {
     @ObservedObject var item: QuickAccessItem
     var onHover: (Bool) -> Void
     var perform: (QuickAccessManager.Action) -> Void
+    var drag: (QuickAccessManager.DragPhase) -> Void
     @State private var hovering = false
 
     var body: some View {
@@ -246,6 +344,17 @@ struct QuickAccessView: View {
                 }
                 .padding(8)
             }
+        }
+        .overlay(alignment: .top) {
+            ZStack {
+                Capsule()
+                    .fill(Color.white.opacity(hovering ? 0.95 : 0.55))
+                    .frame(width: 36, height: 5)
+                    .shadow(color: .black.opacity(0.4), radius: 1)
+                DragGrip(onDrag: drag)
+            }
+            .frame(width: 72, height: 18)
+            .help("Drag to move along the screen edge")
         }
         .frame(width: 240, height: 156)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))

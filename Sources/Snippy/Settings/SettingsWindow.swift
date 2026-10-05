@@ -50,6 +50,7 @@ private struct GeneralSettings: View {
     @AppStorage(Preferences.Key.captureWindowShadow) private var windowShadow = true
     @AppStorage(Preferences.Key.showMagnifier) private var showMagnifier = true
     @AppStorage(Preferences.Key.ocrKeepLineBreaks) private var keepLineBreaks = true
+    @AppStorage(Preferences.Key.autoCheckUpdates) private var autoCheckUpdates = true
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
 
     var body: some View {
@@ -63,6 +64,7 @@ private struct GeneralSettings: View {
                             launchAtLogin = SMAppService.mainApp.status == .enabled
                         }
                     }
+                Toggle("Check for updates automatically", isOn: $autoCheckUpdates)
             }
             Section("After capture") {
                 Toggle("Copy to clipboard", isOn: $copyToClipboard)
@@ -75,6 +77,16 @@ private struct GeneralSettings: View {
                         Text("8 seconds").tag(8.0)
                         Text("15 seconds").tag(15.0)
                         Text("30 seconds").tag(30.0)
+                    }
+                }
+                if showQuickAccess {
+                    HStack {
+                        Text("Overlay position")
+                        Spacer()
+                        Text("Drag the grip on a thumbnail to move it")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Button("Reset") { QuickAccessManager.shared.resetPosition() }
                     }
                 }
                 Toggle("Open annotation editor immediately", isOn: $openEditor)
@@ -275,6 +287,7 @@ private struct AboutSettings: View {
             HStack {
                 Button("Screen Recording Permission…") { Permissions.openPrivacyPane("Privacy_ScreenCapture") }
                 Button("Open Captures Folder") { NSWorkspace.shared.open(Preferences.saveDirectory) }
+                Button("Check for Updates…") { Task { await Updater.check(interactive: true) } }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

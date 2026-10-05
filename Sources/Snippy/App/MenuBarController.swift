@@ -118,6 +118,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         let settings = makeItem("Settings…", symbol: "gearshape", action: #selector(openSettings))
         settings.keyEquivalent = ","
         menu.addItem(settings)
+        menu.addItem(makeItem("Check for Updates…", symbol: "arrow.down.circle", action: #selector(checkForUpdates)))
         menu.addItem(makeItem("About Snippy", symbol: "info.circle", action: #selector(openAbout)))
         let quit = makeItem("Quit Snippy", symbol: "power", action: #selector(quit))
         quit.keyEquivalent = "q"
@@ -227,6 +228,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     }
 
     @objc private func openSettings() { SettingsWindowController.shared.show() }
+
+    @objc private func checkForUpdates() {
+        Task { await Updater.check(interactive: true) }
+    }
 
     @objc private func openAbout() {
         NSApp.activate(ignoringOtherApps: true)

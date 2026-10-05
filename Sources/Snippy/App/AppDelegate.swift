@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             HotKeyCenter.shared.reloadAll()
             if Preferences.hideDesktopIcons { DesktopIconsHider.shared.setHidden(true) }
+            Updater.checkOnLaunchIfNeeded()
             if !Permissions.hasScreenRecording {
                 // Triggers the system prompt on first launch.
                 CGRequestScreenCaptureAccess()

@@ -11,8 +11,9 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
 APP_NAME="Snippy"
-VERSION="${VERSION:-$(cat VERSION 2>/dev/null || echo 1.0.0)}"
 BUILD_NUMBER="${BUILD_NUMBER:-$(git rev-list --count HEAD 2>/dev/null || echo 1)}"
+# VERSION file holds major.minor; the build number completes it (e.g. 1.0.42).
+VERSION="${VERSION:-$(cat VERSION 2>/dev/null || echo 1.0).$BUILD_NUMBER}"
 ARCHS="${ARCHS:-arm64 x86_64}"
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"
 OUT="$ROOT/build"
@@ -63,6 +64,9 @@ if [[ -n "${NOTARY_PROFILE:-}" && "$SIGN_IDENTITY" != "-" ]]; then
   xcrun notarytool submit "$DMG" --keychain-profile "$NOTARY_PROFILE" --wait
   xcrun stapler staple "$DMG"
 fi
+
+# Stable name so https://github.com/<repo>/releases/latest/download/Snippy.dmg always works.
+cp "$DMG" "$OUT/$APP_NAME.dmg"
 
 echo "==> Done"
 echo "    App: $APP"

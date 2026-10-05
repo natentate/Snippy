@@ -13,7 +13,7 @@ A native macOS menu bar app for screenshots and screen recordings, in the spirit
 | **Text capture (OCR)** | Select any area and the text is copied to the clipboard. Uses Apple's on-device Vision framework |
 | **Screen recording** | MP4 (H.264, or HEVC above 4K) of an area, a window or the full screen. Options: 24/30/60 fps, cursor, click highlighting, system audio, microphone (macOS 15+), countdown |
 | **GIF recording** | Same flow as video, exported as a looping GIF with your chosen fps and maximum width |
-| **Quick Access overlay** | A thumbnail appears in the screen corner after each capture. From it you can copy, save, show in Finder, annotate, pin, or drag the file into any app |
+| **Quick Access overlay** | A thumbnail appears at the screen edge after each capture. From it you can copy, save, show in Finder, annotate, pin, or drag the file into any app. Drag the grip at the top of a thumbnail to slide the stack up or down, or to the other side of the screen. Its position is remembered |
 | **Annotation editor** | Arrow, line, rectangle, filled rectangle, ellipse, pen, highlighter, text, numbered counters, pixelate, blur, spotlight and crop. Also: colour palette and picker, stroke sizes, select/move/delete, undo/redo, copy, save, share, pin |
 | **Pinned screenshots** | An always-on-top floating image. Drag it to move, scroll to zoom; right-click for opacity, copy, save or annotate |
 | **Hide desktop icons** | Covers desktop clutter with your wallpaper, and the cover shows in captures |
@@ -43,15 +43,22 @@ In the editor, each tool has a single-letter shortcut (A arrow, R rectangle, T t
 
 ## Install
 
+### One-line install / update (recommended)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/natentate/Snippy/main/scripts/install.sh | bash
+```
+
+This downloads the latest release, quits any running copy of Snippy, installs it to `/Applications` and launches it. Run the same command whenever you want to update. Snippy also checks for updates once a day, and you can check yourself with **Check for Updates…** in the menu. Files downloaded with `curl` aren't quarantined, so macOS doesn't block the first launch.
+
+Every push to `main` builds a new release, `v1.0.<build>`. The latest DMG always lives at
+https://github.com/natentate/Snippy/releases/latest/download/Snippy.dmg
+
+On first launch, grant **Screen & System Audio Recording** permission (System Settings › Privacy & Security), then quit Snippy and reopen it.
+
 ### Option A: download the DMG
 
-1. Open the repository's **Actions** tab, then the latest **Build** run, and download the **Snippy-dmg** artifact. If there is a tagged release, download the `.dmg` from **Releases** instead.
-2. Open the DMG and drag **Snippy** to **Applications**.
-3. The build is ad-hoc signed and not notarized, so macOS blocks the first launch. Right-click the app and choose **Open**, or run:
-   ```bash
-   xattr -dr com.apple.quarantine /Applications/Snippy.app
-   ```
-4. When prompted, grant **Screen & System Audio Recording** permission (System Settings › Privacy & Security). Then quit Snippy and reopen it.
+Download **Snippy.dmg** from [Releases](https://github.com/natentate/Snippy/releases/latest), open it, and drag **Snippy** to **Applications**. A DMG downloaded in a browser is quarantined, so right-click the app and choose **Open** the first time.
 
 ### Option B: build from source
 
@@ -75,7 +82,7 @@ NOTARY_PROFILE="your-notarytool-profile" \
 ./scripts/build-app.sh
 ```
 
-To publish a GitHub Release with the DMG attached, push a tag such as `v1.0.0`.
+Pushing a tag such as `v2.0.0` also publishes a release with that exact version.
 
 ## Project layout
 

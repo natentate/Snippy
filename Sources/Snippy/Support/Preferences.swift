@@ -16,6 +16,10 @@ enum ImageFormat: String, CaseIterable, Identifiable {
     }
 }
 
+enum QuickAccessEdge: String {
+    case left, right
+}
+
 enum VideoQuality: String, CaseIterable, Identifiable {
     case standard, high
 
@@ -48,6 +52,11 @@ enum Preferences {
         static let gifMaxWidth = "gifMaxWidth"
         static let ocrKeepLineBreaks = "ocrKeepLineBreaks"
         static let lastArea = "lastArea"
+        static let quickAccessEdge = "quickAccessEdge"
+        static let quickAccessOffset = "quickAccessOffset"
+        static let quickAccessDisplay = "quickAccessDisplay"
+        static let autoCheckUpdates = "autoCheckUpdates"
+        static let lastUpdateCheck = "lastUpdateCheck"
     }
 
     static let defaults = UserDefaults.standard
@@ -80,6 +89,9 @@ enum Preferences {
             Key.gifFPS: 15,
             Key.gifMaxWidth: 800,
             Key.ocrKeepLineBreaks: true,
+            Key.quickAccessEdge: QuickAccessEdge.left.rawValue,
+            Key.quickAccessOffset: 0.0,
+            Key.autoCheckUpdates: true,
         ])
     }
 
@@ -119,6 +131,27 @@ enum Preferences {
     static var gifFPS: Int { max(5, min(30, defaults.integer(forKey: Key.gifFPS))) }
     static var gifMaxWidth: Int { max(200, defaults.integer(forKey: Key.gifMaxWidth)) }
     static var ocrKeepLineBreaks: Bool { defaults.bool(forKey: Key.ocrKeepLineBreaks) }
+
+    /// Where the Quick Access stack sits: which screen edge, and how far up it (0 = bottom, 1 = top).
+    static var quickAccessEdge: QuickAccessEdge {
+        get { QuickAccessEdge(rawValue: defaults.string(forKey: Key.quickAccessEdge) ?? "") ?? .left }
+        set { defaults.set(newValue.rawValue, forKey: Key.quickAccessEdge) }
+    }
+    static var quickAccessOffset: Double {
+        get { max(0, min(1, defaults.double(forKey: Key.quickAccessOffset))) }
+        set { defaults.set(newValue, forKey: Key.quickAccessOffset) }
+    }
+    static var quickAccessDisplay: CGDirectDisplayID? {
+        get { (defaults.object(forKey: Key.quickAccessDisplay) as? NSNumber)?.uint32Value }
+        set { defaults.set(newValue.map { NSNumber(value: $0) }, forKey: Key.quickAccessDisplay) }
+    }
+    static func resetQuickAccessPosition() {
+        defaults.removeObject(forKey: Key.quickAccessEdge)
+        defaults.removeObject(forKey: Key.quickAccessOffset)
+        defaults.removeObject(forKey: Key.quickAccessDisplay)
+    }
+
+    static var autoCheckUpdates: Bool { defaults.bool(forKey: Key.autoCheckUpdates) }
 
     /// The last area captured, so "Capture Previous Area" can repeat it.
     static var lastArea: SavedArea? {
